@@ -457,6 +457,10 @@
     font-family:'Noto Serif JP', serif;
     font-size:12.5px;
   }
+  .st-reset-btn{
+    margin-top:18px;
+    font-size:12.5px;
+  }
 
   /* --- MANAGE PAGE --- */
   .mg-section{
@@ -941,7 +945,26 @@ let fcDeck = shuffle(wordsForLevel());
 let fcIndex = 0;
 let fcFlipped = false;
 let fcKnown = 0;
-let wordStatus = {}; // en -> 'known' | 'again'
+const WORD_STATUS_KEY = 'eijukugo_wordStatus_v1';
+
+function loadWordStatus(){
+  try{
+    const raw = localStorage.getItem(WORD_STATUS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  }catch(e){
+    return {}; // localStorageが使えない環境ではメモリ上のみで動作
+  }
+}
+
+function saveWordStatus(){
+  try{
+    localStorage.setItem(WORD_STATUS_KEY, JSON.stringify(wordStatus));
+  }catch(e){
+    /* 保存できない場合は何もしない（このセッション内でのみ有効） */
+  }
+}
+
+let wordStatus = loadWordStatus(); // en -> 'known' | 'again'（ブラウザに保存され、リロードしても保持される）
 let fcAgain = 0;
 
 /* ---------- QUIZ STATE ---------- */
@@ -1015,8 +1038,8 @@ function renderFc(){
     </div>
   `;
   document.getElementById('fcCard').onclick = ()=>{ fcFlipped = !fcFlipped; document.getElementById('fcCard').classList.toggle('flipped'); };
-  document.getElementById('btnAgain').onclick = (e)=>{ e.stopPropagation(); fcAgain++; wordStatus[w.en]='again'; nextFc(); };
-  document.getElementById('btnKnown').onclick = (e)=>{ e.stopPropagation(); fcKnown++; wordStatus[w.en]='known'; nextFc(); };
+  document.getElementById('btnAgain').onclick = (e)=>{ e.stopPropagation(); fcAgain++; wordStatus[w.en]='again'; saveWordStatus(); nextFc(); };
+  document.getElementById('btnKnown').onclick = (e)=>{ e.stopPropagation(); fcKnown++; wordStatus[w.en]='known'; saveWordStatus(); nextFc(); };
   updateFooter(fcIndex+1, fcDeck.length);
 }
 function nextFc(){ fcIndex++; fcFlipped=false; renderFc(); }
@@ -1134,6 +1157,7 @@ function updateFooter(cur, total){
 }
 
 function renderStatus(){
+  resetConfirmPending = false;
   const list = wordsForLevel();
   const known = list.filter(w => wordStatus[w.en] === 'known');
   const again = list.filter(w => wordStatus[w.en] === 'again');
@@ -1155,9 +1179,25 @@ function renderStatus(){
     ${known.length ? `<div class="st-group-title">覚えた</div>${known.map(w=>row(w,'known')).join('')}` : ''}
     ${again.length ? `<div class="st-group-title">復習中</div>${again.map(w=>row(w,'again')).join('')}` : ''}
     ${unseen.length ? `<div class="st-group-title">未学習</div>${unseen.map(w=>row(w,'unseen')).join('')}` : ''}
+    <button class="btn wide st-reset-btn" id="btnResetStatus">学習記録をリセットする</button>
   `;
   updateFooter(known.length, list.length);
+
+  document.getElementById('btnResetStatus').onclick = ()=>{
+    if(resetConfirmPending){
+      wordStatus = {};
+      saveWordStatus();
+      resetConfirmPending = false;
+      renderStatus();
+    } else {
+      resetConfirmPending = true;
+      const btn = document.getElementById('btnResetStatus');
+      btn.textContent = 'もう一度押すとリセットされます';
+      btn.classList.add('again');
+    }
+  };
 }
+let resetConfirmPending = false;
 
 renderLevelBar();
 renderFc();
