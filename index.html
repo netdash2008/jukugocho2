@@ -925,7 +925,9 @@ function renderLevelBar(){
 }
 
 function resetDecks(){
-  fcDeck = shuffle(wordsForLevel()); fcIndex=0; fcKnown=0; fcAgain=0; fcFlipped=false;
+  fcDeck = shuffle(wordsForLevel()); fcIndex=0; fcFlipped=false;
+  const c = countKnownAgain(fcDeck);
+  fcKnown = c.known; fcAgain = c.again;
   qzDeck = shuffle(wordsForLevel()); qzIndex=0; qzScore=0; qzChoices=[];
 }
 
@@ -940,11 +942,6 @@ function shuffle(arr){
 
 document.getElementById('dateTag').textContent = new Date().toLocaleDateString('ja-JP', {year:'numeric',month:'long',day:'numeric'});
 
-/* ---------- FLASHCARD STATE ---------- */
-let fcDeck = shuffle(wordsForLevel());
-let fcIndex = 0;
-let fcFlipped = false;
-let fcKnown = 0;
 const WORD_STATUS_KEY = 'eijukugo_wordStatus_v1';
 
 function loadWordStatus(){
@@ -965,7 +962,23 @@ function saveWordStatus(){
 }
 
 let wordStatus = loadWordStatus(); // en -> 'known' | 'again'（ブラウザに保存され、リロードしても保持される）
-let fcAgain = 0;
+
+function countKnownAgain(list){
+  let known = 0, again = 0;
+  list.forEach(w=>{
+    if(wordStatus[w.en] === 'known') known++;
+    else if(wordStatus[w.en] === 'again') again++;
+  });
+  return {known, again};
+}
+
+/* ---------- FLASHCARD STATE ---------- */
+let fcDeck = shuffle(wordsForLevel());
+let fcIndex = 0;
+let fcFlipped = false;
+let fcInitCounts = countKnownAgain(fcDeck);
+let fcKnown = fcInitCounts.known;
+let fcAgain = fcInitCounts.again;
 
 /* ---------- QUIZ STATE ---------- */
 let qzDeck = shuffle(wordsForLevel());
@@ -1000,7 +1013,9 @@ function renderFc(){
         <button class="btn wide" id="restartFc">最初からやり直す</button>
       </div>`;
     document.getElementById('restartFc').onclick = ()=>{
-      fcDeck = shuffle(wordsForLevel()); fcIndex=0; fcKnown=0; fcAgain=0; fcFlipped=false; renderFc();
+      fcDeck = shuffle(wordsForLevel()); fcIndex=0; fcFlipped=false;
+      const c = countKnownAgain(fcDeck); fcKnown = c.known; fcAgain = c.again;
+      renderFc();
     };
     return;
   }
@@ -1187,6 +1202,7 @@ function renderStatus(){
     if(resetConfirmPending){
       wordStatus = {};
       saveWordStatus();
+      fcKnown = 0; fcAgain = 0;
       resetConfirmPending = false;
       renderStatus();
     } else {
